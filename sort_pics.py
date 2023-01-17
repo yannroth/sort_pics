@@ -7,6 +7,7 @@ from PIL import Image, ExifTags
 import re
 import subprocess
 import time
+import logging
 
 version = '1.0.0'
 date_format = '%Y-%m-%d'
@@ -94,11 +95,13 @@ def move(src, dst):
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
+        logging.info(out_dir + ' created')
 
     if not os.path.isdir(out_dir):
         raise ValueError(out_dir + ' exists but is not a directory')
 
     os.rename(src, dst)
+    logging.info(src + ' --> ' + dst)
 
 def move_prompt(file: str, folder: str, sub_dir: str, date: datetime.datetime):
     response = input('Do you want to move "' + file + '" into "' + folder + '" [y,n,a,s,q,?] ? ')
@@ -110,6 +113,7 @@ def move_prompt(file: str, folder: str, sub_dir: str, date: datetime.datetime):
         move(file, out_file)
 
     elif response == 'n':
+        logging.info(file + ' skipped')
         pass
 
     elif response == 's':
@@ -127,7 +131,7 @@ def move_prompt(file: str, folder: str, sub_dir: str, date: datetime.datetime):
         print('? - Print help')
         move_prompt(file, folder, sub_dir, date)
 
-def create_prompt(date: datetime.datetime, lib: str):
+def create_prompt(file: str, date: datetime.datetime, lib: str):
     folder = ''
     date_str = date.strftime(date_format)
     response = input('Do you want to create a folder for ' + date_str + ' [y,n,s,q,?] ? ')
@@ -137,9 +141,11 @@ def create_prompt(date: datetime.datetime, lib: str):
         folder = os.path.join(lib, folder_name)
 
     elif response == 'n':
+        logging.info(file + ' skipped')
         pass
 
     elif response == 's':
+        logging.info(file + ' skipped')
         skip_dates.append(date)
 
     elif response == 'q':
@@ -151,12 +157,13 @@ def create_prompt(date: datetime.datetime, lib: str):
         print('s - Skip all with this date')
         print('q - Quit and cancel later files')
         print('? - Print help')
-        folder = create_prompt(date, lib)
+        folder = create_prompt(file, date, lib)
 
     return folder
 
 def auto_response(skip: list, auto: list, file: str, folder: str, sub_dir: str, date: datetime.datetime):
     if date in skip:
+        logging.info(file + ' skipped')
         return True
 
     if date in auto:
@@ -174,7 +181,7 @@ def create_and_move_prompt(file: str, folder: str, date: datetime.datetime, lib:
     try:
         viewer = display_pic(file, viewer_sw)
         if not folder:
-            folder = create_prompt(date, lib)
+            folder = create_prompt(file, date, lib)
 
         if folder:
             move_prompt(file, folder, sub_dir, date)
@@ -212,9 +219,10 @@ def cli_args():
     parser.add_argument('input', type=existing_dir, help='Input directory containing pictures to sort')
     parser.add_argument('library', type=existing_dir, help='Output directory containing (or not) an existing picture library')
     parser.add_argument('-s', '--start', type=input_date, default='1970-01-01', help='Pictures taken before this start date are ignored, ex: "2021-01-31"')
-    parser.add_argument('-p', '--stop', type=input_date, default= datetime.datetime.now().strftime(date_format), help='Pictures taken after this stop date are ignored, ex: "2022-12-31"')
+    parser.add_argument('-p', '--stop', type=input_date, default=datetime.datetime.now().strftime(date_format), help='Pictures taken after this stop date are ignored, ex: "2022-12-31"')
     parser.add_argument('-sd', '--sub_dir', type=str, default='', help='Create a sub-dir with the provided name into libraries folders')
     parser.add_argument('-sw', '--viewer_sw', type=str, default='nomacs', help='Switch the software used to view open the pictures')
+    parser.add_argument('-l', '--log', type=str, default=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'.log', help='Provide log file name')
     parser.add_argument('-v', '--version', action='store_true', default=False, help='Print version and quit')
     return parser.parse_args()
 
@@ -224,6 +232,15 @@ def main():
     if args.version:
         print(version)
         return
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(message)s',
+        handlers=[
+            logging.FileHandler(args.log),
+            logging.StreamHandler()
+        ]
+    )
 
     input_files = get_files_recursive(args.input, extensions)
     for file in input_files:
@@ -235,12 +252,12 @@ def main():
         try:
             create_and_move_prompt(file, output_folder, file_date, args.library, args.sub_dir, args.viewer_sw)
         except StopIteration:
-            print('Stopped by user')
+            logging.info('Stopped by user')
             return
         except NotImplementedError:
             pass
 
-    print('All files treated')
+    logging.info('All files treated')
 
 if __name__ == '__main__':
     main()
