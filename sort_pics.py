@@ -14,6 +14,9 @@ jpeg_ext = ['.jpg', '.JPG', '.jpeg', '.JPEG']
 png_ext = ['.png', '.PNG']
 extensions = jpeg_ext + png_ext
 
+skip_dates = []
+auto_dates = []
+
 def existing_dir(string):
     if not os.path.exists(string):
         raise argparse.ArgumentTypeError(repr(string) + " does not exist.")
@@ -97,15 +100,20 @@ def move(src, dst):
 
     os.rename(src, dst)
 
-def move_prompt(file, folder, sub_dir=''):
-    out_folder = os.path.join(folder, sub_dir)
-    response = input('Do you want to move "' + file + '" into "' + folder + '" [y,n,q,?] ? ')
-    if response == 'y':
-        out_file = os.path.join(out_folder, os.path.basename(file))
+def move_prompt(file: str, folder: str, sub_dir: str, date: datetime.datetime):
+    response = input('Do you want to move "' + file + '" into "' + folder + '" [y,n,a,s,q,?] ? ')
+    if response == 'a':
+        auto_dates.append(date)
+
+    if response == 'y' or response == 'a':
+        out_file = os.path.join(folder, sub_dir, os.path.basename(file))
         move(file, out_file)
 
     elif response == 'n':
         pass
+
+    elif response == 's':
+        skip_dates.append(date)
 
     elif response == 'q':
         raise StopIteration
@@ -113,14 +121,16 @@ def move_prompt(file, folder, sub_dir=''):
     else:
         print('y - Move file')
         print('n - Do not move file')
+        print('a - Move all with this date')
+        print('s - Skip all with this date')
         print('q - Quit and cancel later files')
         print('? - Print help')
-        move_prompt(file, folder, sub_dir)
+        move_prompt(file, folder, sub_dir, date)
 
 def create_prompt(date: datetime.datetime, lib: str):
     folder = ''
     date_str = date.strftime(date_format)
-    response = input('Do you want to create a folder for ' + date_str + ' [y,n,q,?] ? ')
+    response = input('Do you want to create a folder for ' + date_str + ' [y,n,s,q,?] ? ')
     if response == 'y':
         input_name = input('Enter folder name (date will be prefixed automatically): ')
         folder_name = date_str + ' ' + input_name.lstrip().rstrip()
@@ -129,27 +139,45 @@ def create_prompt(date: datetime.datetime, lib: str):
     elif response == 'n':
         pass
 
+    elif response == 's':
+        skip_dates.append(date)
+
     elif response == 'q':
         raise StopIteration
 
     else:
         print('y - Move file')
         print('n - Do not move file')
+        print('s - Skip all with this date')
         print('q - Quit and cancel later files')
         print('? - Print help')
         folder = create_prompt(date, lib)
 
     return folder
 
+def auto_response(skip: list, auto: list, file: str, folder: str, sub_dir: str, date: datetime.datetime):
+    if date in skip:
+        return True
+
+    if date in auto:
+        out_file = os.path.join(folder, sub_dir, os.path.basename(file))
+        move(file, out_file)
+        return True
+
+    return False
+
 def create_and_move_prompt(file: str, folder: str, date: datetime.datetime, lib: str, sub_dir: str, viewer_sw: str):
-    viewer = display_pic(file, viewer_sw)
+
+    if auto_response(skip_dates, auto_dates, file, folder, sub_dir, date):
+        return
 
     try:
+        viewer = display_pic(file, viewer_sw)
         if not folder:
             folder = create_prompt(date, lib)
 
         if folder:
-            move_prompt(file, folder, sub_dir)
+            move_prompt(file, folder, sub_dir, date)
     finally:
         close_pic(viewer)
 
