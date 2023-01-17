@@ -242,6 +242,13 @@ def main():
         ]
     )
 
+    logging.info('version: ' + version)
+    logging.info('input: ' + args.input)
+    logging.info('library: ' + args.library)
+    logging.info('sub_dir: ' + args.sub_dir)
+    logging.info('start: ' + args.start.strftime(date_format))
+    logging.info('stop: ' + args.stop.strftime(date_format))
+
     input_files = get_files_recursive(args.input, extensions)
     for file in input_files:
         file_date = get_creation_date(file)
