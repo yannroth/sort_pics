@@ -9,7 +9,7 @@ import subprocess
 import time
 import logging
 
-version = '1.0.0'
+version = '1.1.0'
 date_format = '%Y-%m-%d'
 jpeg_ext = ['.jpg', '.JPG', '.jpeg', '.JPEG']
 png_ext = ['.png', '.PNG']
